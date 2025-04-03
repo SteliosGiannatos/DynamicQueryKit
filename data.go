@@ -1,3 +1,11 @@
+// Package dynamicquerykit provides helper functions to manage:
+// Caching with memcached, dynamic filter for queries, standard responses for
+// pagination, deleted/updated/created assets and deleted cache
+// provides distinct fields struct and an id that can be used for faster lookups
+// using the index of each field. Helper methods that generate cache keys based on applied filters
+// helper functions that execute database queries for update/delete/update and helper methods for pagination
+// both for manual query definition and automatically by wrapping your main query in a CTE.
+// database validation methods for user friendly messaged that can be shown as a response
 package dynamicquerykit
 
 import "time"
@@ -25,13 +33,6 @@ type Filters struct {
 	FieldID  string `json:"field_id" xml:"field_id" yaml:"field_id" csv:"field_id"`
 }
 
-// Construct method completes missing FieldIDs
-func (f *Filters) Construct() {
-	if f.FieldID == "" {
-		f.FieldID = f.DbField
-	}
-}
-
 // DeletedCacheResponse standard response for routes that delete cache
 type DeletedCacheResponse struct {
 	Status      int `json:"status" xml:"status" yaml:"status" csv:"status"`
@@ -54,9 +55,9 @@ type DistinctFieldNamesResponse struct {
 
 // DistinctFieldNames is the basic component of DistinctFieldNamesResponse
 type DistinctFieldNames struct {
-	ID    *string `json:"id" xml:"id" yaml:"id" csv:"id"`
-	Name  *string `json:"name" xml:"name" yaml:"name" csv:"name"`
-	Count int     `json:"count" xml:"count" yaml:"count" csv:"count"`
+	ID    string `json:"id" xml:"id" yaml:"id" csv:"id"`
+	Name  string `json:"name" xml:"name" yaml:"name" csv:"name"`
+	Count int    `json:"count" xml:"count" yaml:"count" csv:"count"`
 }
 
 // IDs generic struct for getting the IDs of assets
