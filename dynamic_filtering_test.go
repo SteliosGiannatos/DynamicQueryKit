@@ -7,72 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestExtendFilters(t *testing.T) {
-	tests := []struct {
-		name     string
-		f1       []Filters
-		f2       []Filters
-		expected []Filters
-	}{
-		{
-			name: "f1 longer than f2",
-			f1: []Filters{
-				{Name: "a", Operator: "=", DbField: "field1", FieldID: "1"},
-				{Name: "b", Operator: ">", DbField: "field2", FieldID: "2"},
-			},
-			f2: []Filters{
-				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
-			},
-			expected: []Filters{
-				{Name: "a", Operator: "=", DbField: "field1", FieldID: "1"},
-				{Name: "b", Operator: ">", DbField: "field2", FieldID: "2"},
-				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
-			},
-		},
-		{
-			name: "f2 longer than f1",
-			f1: []Filters{
-				{Name: "x", Operator: "!=", DbField: "field9", FieldID: "9"},
-			},
-			f2: []Filters{
-				{Name: "y", Operator: "LIKE", DbField: "field8", FieldID: "8"},
-				{Name: "z", Operator: "<=", DbField: "field7", FieldID: "7"},
-			},
-			expected: []Filters{
-				{Name: "y", Operator: "LIKE", DbField: "field8", FieldID: "8"},
-				{Name: "z", Operator: "<=", DbField: "field7", FieldID: "7"},
-				{Name: "x", Operator: "!=", DbField: "field9", FieldID: "9"},
-			},
-		},
-		{
-			name:     "both empty",
-			f1:       []Filters{},
-			f2:       []Filters{},
-			expected: []Filters{},
-		},
-		{
-			name: "equal length",
-			f1: []Filters{
-				{Name: "e1", Operator: "=", DbField: "f1", FieldID: "id1"},
-			},
-			f2: []Filters{
-				{Name: "e2", Operator: "!=", DbField: "f2", FieldID: "id2"},
-			},
-			expected: []Filters{
-				{Name: "e2", Operator: "!=", DbField: "f2", FieldID: "id2"},
-				{Name: "e1", Operator: "=", DbField: "f1", FieldID: "id1"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ExtendFilters(tt.f1, tt.f2)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestIsAggregate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -102,6 +36,7 @@ func TestIsAggregate(t *testing.T) {
 		})
 	}
 }
+
 func TestAreFiltersAggregate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -380,4 +315,70 @@ func TestDynamicFilters(t *testing.T) {
 
 	}
 
+}
+
+func TestExtendFilters(t *testing.T) {
+	tests := []struct {
+		name     string
+		f1       []Filters
+		f2       []Filters
+		expected []Filters
+	}{
+		{
+			name: "f1 longer than f2",
+			f1: []Filters{
+				{Name: "a", Operator: "=", DbField: "field1", FieldID: "1"},
+				{Name: "b", Operator: ">", DbField: "field2", FieldID: "2"},
+			},
+			f2: []Filters{
+				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
+			},
+			expected: []Filters{
+				{Name: "a", Operator: "=", DbField: "field1", FieldID: "1"},
+				{Name: "b", Operator: ">", DbField: "field2", FieldID: "2"},
+				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
+			},
+		},
+		{
+			name: "f2 longer than f1",
+			f1: []Filters{
+				{Name: "x", Operator: "!=", DbField: "field9", FieldID: "9"},
+			},
+			f2: []Filters{
+				{Name: "y", Operator: "LIKE", DbField: "field8", FieldID: "8"},
+				{Name: "z", Operator: "<=", DbField: "field7", FieldID: "7"},
+			},
+			expected: []Filters{
+				{Name: "y", Operator: "LIKE", DbField: "field8", FieldID: "8"},
+				{Name: "z", Operator: "<=", DbField: "field7", FieldID: "7"},
+				{Name: "x", Operator: "!=", DbField: "field9", FieldID: "9"},
+			},
+		},
+		{
+			name:     "both empty",
+			f1:       []Filters{},
+			f2:       []Filters{},
+			expected: []Filters{},
+		},
+		{
+			name: "equal length",
+			f1: []Filters{
+				{Name: "e1", Operator: "=", DbField: "f1", FieldID: "id1"},
+			},
+			f2: []Filters{
+				{Name: "e2", Operator: "!=", DbField: "f2", FieldID: "id2"},
+			},
+			expected: []Filters{
+				{Name: "e2", Operator: "!=", DbField: "f2", FieldID: "id2"},
+				{Name: "e1", Operator: "=", DbField: "f1", FieldID: "id1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExtendFilters(tt.f1, tt.f2)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
