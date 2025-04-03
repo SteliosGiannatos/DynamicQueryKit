@@ -103,6 +103,7 @@ func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.
 // DynamicFilters it applies dynamic filters based on the allowed filters. These are added to the specified query
 // it can get the query params as is from the r.URL.query() method.
 // it does not stop the user from passing multiple = params
+// all conditions are passed as AND parameters. This is true for both having & where conditions
 func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]string) sq.SelectBuilder {
 	whereCond, HavingCond := BuildFilterConditions(f, queryParams)
 	if len(HavingCond) > 0 {
@@ -115,6 +116,8 @@ func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]st
 }
 
 // ExtendFilters takes in two filters and appends one to the other
+// it always appends the smallest filter to the larger filter.
+// if both are equal size f1 gets appended to f2
 func ExtendFilters(f1 []Filters, f2 []Filters) []Filters {
 	if len(f1) > len(f2) {
 		f1 = append(f1, f2...)

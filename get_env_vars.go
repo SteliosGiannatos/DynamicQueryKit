@@ -2,7 +2,6 @@ package dynamicquerykit
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -20,21 +19,15 @@ func GetString(key string, fallback string) string {
 }
 
 // GetTime Gets env variable of a key, makes it into time.duration else returns the fallback
-func GetTime(key, fallback string) time.Duration {
+func GetTime(key string, fallback time.Duration) time.Duration {
 	val, ok := os.LookupEnv(key)
-	f, err := time.ParseDuration(fallback)
-	if err != nil {
-		slog.LogAttrs(context.Background(), slog.LevelError, "you provided an incorrect fallback duration\n", slog.String("key", fallback), slog.Any("error", err))
-		panic(fmt.Sprintf("you provided an incorrect fallback duration for env key: (%v), error: (%v)\n", fallback, err))
-
-	}
 	if !ok {
-		return f
+		return fallback
 	}
 	dur, err := time.ParseDuration(val)
 	if err != nil {
 		slog.LogAttrs(context.Background(), slog.LevelWarn, "you provided an incorrect duration key, using fallback\n", slog.String("key", key), slog.String("value", val))
-		return f
+		return fallback
 
 	}
 	return dur
@@ -70,25 +63,17 @@ func GetBool(key string, fallback bool) bool {
 	return boolVal
 }
 
-// GetDates gets a map of named string dates and returns them as time.Time
-// the dates must be using the time.DateOnly format
-// const time.DateOnly untyped string = "2006-01-02"
-func GetDates(dateMap map[string]string) map[string]time.Time {
-	dates := make(map[string]time.Time)
-	parseDate := func(date_str string) time.Time {
-		parsed, err := time.Parse(time.DateOnly, date_str)
-		if err != nil {
-			return time.Time{}
-		}
-		return parsed
+// GetDate gets a time.DateOnly string and makes it time.Time
+func GetDate(key string, fallback time.Time) time.Time {
+	val, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
 	}
 
-	for k, v := range dateMap {
-		date := parseDate(v)
-		if !date.IsZero() {
-			dates[k] = date
-		}
+	parsed, err := time.Parse(time.DateOnly, val)
+	if err != nil {
+		return fallback
 	}
 
-	return dates
+	return parsed
 }
