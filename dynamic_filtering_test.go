@@ -333,3 +333,51 @@ func TestBuildFilterConditions(t *testing.T) {
 	}
 
 }
+
+func TestDynamicFilters(t *testing.T) {
+	tests := []struct {
+		name          string
+		filters       []Filters
+		values        map[string][]string
+		ExpectedQuery string
+	}{
+		{
+			name: "complete case testing",
+			filters: []Filters{
+				{Name: "country", Operator: "=", DbField: "country.name", FieldID: "1"},
+				{Name: "stars", Operator: "IN", DbField: "booking.stars", FieldID: "1"},
+				{Name: "deleted_date", Operator: "=", DbField: "country.deleted_date", FieldID: "1"},
+				{Name: "created_date", Operator: "=", DbField: "country.created_date", FieldID: "1"},
+				{Name: "c", Operator: "<", DbField: "SUM(id)", FieldID: "3"},
+				{Name: "flying", Operator: "LIKE", DbField: "cars.flying", FieldID: "1"},
+				{Name: "crying", Operator: "ILIKE", DbField: "cars.crying", FieldID: "1"},
+			},
+			values: map[string][]string{
+				"country":      {"Greece"},
+				"stars":        {"1", "2"},
+				"deleted_date": {"__NULL__", "France", "Germany"},
+				"created_date": {"__NOT_NULL__", "France", "Germany"},
+				"c":            {"8"},
+				"flying":       {"cars"},
+				"crying":       {"TeSlA"},
+			},
+			ExpectedQuery: "SELECT * FROM countries WHERE (country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL AND cars.flying LIKE ? AND cars.crying ILIKE ?) HAVING (SUM(id) < ?)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initial := sq.Select("*").From("countries")
+			query := DynamicFilters(tt.filters, initial, tt.values)
+			queryStr, _, _ := query.ToSql()
+			assert.Equal(t, tt.ExpectedQuery, queryStr)
+			assert.Equal(t, tt.values["country"][0], "Greece")
+			assert.Equal(t, tt.values["stars"][0], "1")
+			assert.Equal(t, tt.values["stars"][1], "2")
+			assert.Equal(t, tt.values["c"][0], "8")
+			assert.Equal(t, tt.values["flying"][0], "%cars%")
+			assert.Equal(t, tt.values["crying"][0], "%TeSlA%")
+		})
+
+	}
+
+}

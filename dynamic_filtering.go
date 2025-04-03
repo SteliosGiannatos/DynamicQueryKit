@@ -105,8 +105,13 @@ func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.
 // it does not stop the user from passing multiple = params
 func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]string) sq.SelectBuilder {
 	whereCond, HavingCond := BuildFilterConditions(f, queryParams)
-	query := q.Where(whereCond).Having(HavingCond)
-	return query
+	if len(HavingCond) > 0 {
+		q = q.Having(sq.And(HavingCond))
+	}
+	if len(whereCond) > 0 {
+		q = q.Where(sq.And(whereCond))
+	}
+	return q
 }
 
 // ExtendFilters takes in two filters and appends one to the other
