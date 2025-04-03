@@ -292,6 +292,35 @@ func TestBuildFilterConditions(t *testing.T) {
 			},
 			expectedHaving: []sq.Sqlizer{},
 		},
+		{
+			name: "IN filtering",
+			filters: []Filters{
+				{Name: "country", Operator: "IN", DbField: "country.name", FieldID: "1"},
+			},
+			values: map[string][]string{
+				"country": {"Greece", "France", "Germany"},
+			},
+			expectedWhere: []sq.Sqlizer{
+				sq.Eq{"country.name": []string{"Greece", "France", "Germany"}},
+			},
+			expectedHaving: []sq.Sqlizer{},
+		},
+		{
+			name: "NULL & NOT NULL",
+			filters: []Filters{
+				{Name: "created_date", Operator: "=", DbField: "country.created_date", FieldID: "1"},
+				{Name: "deleted_date", Operator: "=", DbField: "country.deleted_date", FieldID: "1"},
+			},
+			values: map[string][]string{
+				"created_date": {"__NOT_NULL__", "France", "Germany"},
+				"deleted_date": {"__NULL__", "France", "Germany"},
+			},
+			expectedWhere: []sq.Sqlizer{
+				sq.Expr("country.created_date IS NOT NULL"),
+				sq.Expr("country.deleted_date IS NULL"),
+			},
+			expectedHaving: []sq.Sqlizer{},
+		},
 	}
 
 	for _, tt := range tests {

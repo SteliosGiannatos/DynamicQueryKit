@@ -86,6 +86,7 @@ func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.
 			continue
 		}
 		if filter.Operator == "IN" && !hasNullOrNot {
+			WhereConditions = append(WhereConditions, sq.Eq{filter.DbField: allowedValues})
 			continue
 		}
 		for _, value := range allowedValues {
