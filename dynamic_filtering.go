@@ -48,10 +48,11 @@ func AreFiltersAggregate(filters []Filters) bool {
 // the Filter.Name field. It returns first all where conditions (conditions that should be added in a where claus)
 // and having conditions (all conditions that should be added in a having claus) Both can be consolidated using
 // either sq.And() or sq.Or() or a custom method in order to be applied to a filter
-func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.Sqlizer, []sq.Sqlizer) {
+func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.Sqlizer, []sq.Sqlizer, map[string]string) {
 	var (
 		WhereConditions  = []sq.Sqlizer{}
 		HavingConditions = []sq.Sqlizer{}
+		conditionsSet    = make(map[string]string)
 	)
 	for _, filter := range filters {
 		allowedValues := values[filter.Name]
@@ -83,36 +84,40 @@ func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.
 		}
 		if hasNullOrNot {
 			WhereConditions = append(WhereConditions, sq.Expr(fmt.Sprintf("%s %s", filter.DbField, filter.Operator)))
+			conditionsSet[filter.DbField] = filter.Operator
 			continue
 		}
 		if filter.Operator == "IN" && !hasNullOrNot {
 			WhereConditions = append(WhereConditions, sq.Eq{filter.DbField: allowedValues})
+			conditionsSet[filter.DbField] = strings.Join(allowedValues, ",")
 			continue
 		}
 		for _, value := range allowedValues {
 			if useHaving {
 				HavingConditions = append(HavingConditions, sq.Expr(fmt.Sprintf("%s %s ?", filter.DbField, filter.Operator), value))
+				conditionsSet[filter.DbField] = value
 				continue
 			}
 			WhereConditions = append(WhereConditions, sq.Expr(fmt.Sprintf("%s %s ?", filter.DbField, filter.Operator), value))
+			conditionsSet[filter.DbField] = value
 		}
 	}
-	return WhereConditions, HavingConditions
+	return WhereConditions, HavingConditions, conditionsSet
 }
 
 // DynamicFilters it applies dynamic filters based on the allowed filters. These are added to the specified query
 // it can get the query params as is from the r.URL.query() method.
 // it does not stop the user from passing multiple = params
 // all conditions are passed as AND parameters. This is true for both having & where conditions
-func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]string) sq.SelectBuilder {
-	whereCond, HavingCond := BuildFilterConditions(f, queryParams)
+func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]string) (sq.SelectBuilder, map[string]string) {
+	whereCond, HavingCond, cacheKeyParams := BuildFilterConditions(f, queryParams)
 	if len(HavingCond) > 0 {
 		q = q.Having(sq.And(HavingCond))
 	}
 	if len(whereCond) > 0 {
 		q = q.Where(sq.And(whereCond))
 	}
-	return q
+	return q, cacheKeyParams
 }
 
 // ExtendFilters takes in two filters and appends one to the other

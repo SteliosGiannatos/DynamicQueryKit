@@ -260,7 +260,7 @@ func TestBuildFilterConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResultsWhere, ResultsHaving := BuildFilterConditions(tt.filters, tt.values)
+			ResultsWhere, ResultsHaving, _ := BuildFilterConditions(tt.filters, tt.values)
 			assert.Equal(t, tt.expectedWhere, ResultsWhere)
 			assert.Equal(t, tt.expectedHaving, ResultsHaving)
 		})
@@ -271,10 +271,11 @@ func TestBuildFilterConditions(t *testing.T) {
 
 func TestDynamicFilters(t *testing.T) {
 	tests := []struct {
-		name          string
-		filters       []Filters
-		values        map[string][]string
-		ExpectedQuery string
+		name                 string
+		filters              []Filters
+		values               map[string][]string
+		ExpectedQuery        string
+		ExpectedStringParams map[string]string
 	}{
 		{
 			name: "complete case testing",
@@ -297,13 +298,23 @@ func TestDynamicFilters(t *testing.T) {
 				"crying":       {"TeSlA"},
 			},
 			ExpectedQuery: "SELECT * FROM countries WHERE (country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL AND cars.flying LIKE ? AND cars.crying ILIKE ?) HAVING (SUM(id) < ?)",
+			ExpectedStringParams: map[string]string{
+				"country.name":         "Greece",
+				"booking.stars":        "1,2",
+				"country.deleted_date": "IS NULL",
+				"country.created_date": "IS NOT NULL",
+				"SUM(id)":              "8",
+				"cars.flying":          "%cars%",
+				"cars.crying":          "%TeSlA%",
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			initial := sq.Select("*").From("countries")
-			query := DynamicFilters(tt.filters, initial, tt.values)
+			query, conditions := DynamicFilters(tt.filters, initial, tt.values)
 			queryStr, _, _ := query.ToSql()
+			assert.Equal(t, tt.ExpectedStringParams, conditions)
 			assert.Equal(t, tt.ExpectedQuery, queryStr)
 			assert.Equal(t, tt.values["country"][0], "Greece")
 			assert.Equal(t, tt.values["stars"][0], "1")
