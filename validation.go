@@ -54,9 +54,10 @@ func OrderValidation(orderByStr string, orderDirectionStr string, filters []Filt
 	if !result || orderBy == "" {
 		slog.LogAttrs(context.Background(), slog.LevelWarn, "order by that does not exist as a filter was provided, using first field instead", slog.String("order by", orderBy), slog.String("order direction", orderDirection), slog.String("filter", filters[0].DbField))
 		orderBy = filters[0].DbField
+	} else {
+		orderBy = filter.DbField
 	}
-
-	return fmt.Sprintf("%s %s", filter.DbField, orderDirection)
+	return fmt.Sprintf("%s %s", orderBy, orderDirection)
 }
 
 // DatabaseValidation checks a database error and returns an appropriate
