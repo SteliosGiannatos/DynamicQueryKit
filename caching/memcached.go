@@ -54,6 +54,24 @@ func SetUpMemcachedDB(opts *cacheConfig) *MemcachedDB {
 	return m
 }
 
+// SetKey easier way to set a cache key
+// Default expiration date is today at midnight
+func (m *MemcachedDB) SetKey(key string, value string, ttl *time.Duration) error {
+	var expiration int32
+
+	if ttl != nil {
+		expiration = int32(ttl.Seconds())
+	} else {
+		expiration = int32(m.config.DefaultExpiration.Seconds())
+	}
+
+	err := m.database.Set(&memcache.Item{Key: fmt.Sprintf("%s:%s", m.config.Prefix, key), Value: []byte(value), Expiration: expiration})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // SetKeyIndex appends to the list of keys
 // A list of the cached keys is maintained in the cache with no expiration
 // so when it comes to invalidating routes with dynamic filters you know all the cached keys
@@ -130,24 +148,6 @@ func (m *MemcachedDB) DeleteCacheIndex(route string) (int, error) {
 	}
 
 	return len(keys), nil
-}
-
-// SetKey easier way to set a cache key
-// Default expiration date is today at midnight
-func (m *MemcachedDB) SetKey(key string, value string, ttl *time.Duration) error {
-	var expiration int32
-
-	if ttl != nil {
-		expiration = int32(ttl.Seconds())
-	} else {
-		expiration = int32(m.config.DefaultExpiration.Seconds())
-	}
-
-	err := m.database.Set(&memcache.Item{Key: fmt.Sprintf("%s:%s", m.config.Prefix, key), Value: []byte(value), Expiration: expiration})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func getMemcachedDefaultOpt() cacheConfig {
