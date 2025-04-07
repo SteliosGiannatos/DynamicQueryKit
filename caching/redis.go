@@ -51,7 +51,7 @@ func SetUpRedisDB(c *cacheConfig) Cache {
 
 // SetKey sets a string type in redis with a provided value and a ttl.
 func (r *RedisDB) SetKey(key string, value string, ttl *time.Duration) error {
-
+	key = r.getCacheKey(key)
 	var expiration time.Duration
 
 	if ttl != nil {
@@ -60,7 +60,7 @@ func (r *RedisDB) SetKey(key string, value string, ttl *time.Duration) error {
 		expiration = *r.config.DefaultExpiration
 	}
 
-	status := r.database.Set(context.Background(), fmt.Sprintf("%s:%s", r.config.Prefix, key), value, time.Duration(expiration))
+	status := r.database.Set(context.Background(), key, value, time.Duration(expiration))
 	if status.Err() != nil {
 		return status.Err()
 	}
@@ -71,8 +71,8 @@ func (r *RedisDB) SetKey(key string, value string, ttl *time.Duration) error {
 // SetKeyIndex sets indexes for a key. Uses the underline set in redis
 func (r *RedisDB) SetKeyIndex(indexKey, member string) error {
 	ctx := context.Background()
-	indexKey = fmt.Sprintf("%s:%s:keys", r.config.Prefix, indexKey)
-	member = fmt.Sprintf("%s:%s", r.config.Prefix, member)
+	indexKey = r.getCacheKey(indexKey + ":keys")
+	member = r.getCacheKey(member)
 
 	if err := r.database.SAdd(ctx, indexKey, member).Err(); err != nil {
 		return fmt.Errorf("failed to add member to set %q: %w", indexKey, err)
@@ -83,7 +83,7 @@ func (r *RedisDB) SetKeyIndex(indexKey, member string) error {
 
 // DeleteCacheIndex clears the cache indexes for a provided route
 func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
-	indexKey = fmt.Sprintf("%s:%s:keys", r.config.Prefix, indexKey)
+	indexKey = r.getCacheKey(indexKey + ":keys")
 	evictedKeys, err := r.database.Del(context.Background(), indexKey).Result()
 	if err != nil {
 		return int(evictedKeys), err
@@ -94,7 +94,7 @@ func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
 
 // Get gets the value of a key from redis
 func (r *RedisDB) Get(key string) ([]byte, error) {
-	key = fmt.Sprintf("%s:%s", r.config.Prefix, key)
+	key = r.getCacheKey(key)
 	item := r.database.Get(context.Background(), key)
 	if item.Err() != nil {
 		return []byte{}, item.Err()
@@ -102,10 +102,27 @@ func (r *RedisDB) Get(key string) ([]byte, error) {
 	return []byte(item.Val()), nil
 }
 
+func (r *RedisDB) CacheIncrement(key string, expiration time.Duration) error {
+	key = r.getCacheKey(key)
+
+	result := r.database.Get(context.Background(), key)
+
+	if result.Err() != nil {
+		r.database.Set(context.Background(), key, 1, expiration)
+	} else {
+		IncResult := r.database.Incr(context.Background(), key)
+		if IncResult.Err() != nil {
+			return IncResult.Err()
+		}
+	}
+
+	return nil
+}
+
 func getRedisDefaultOpt() cacheConfig {
 	midnight := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+1, 0, 0, 0, 0, time.Now().Location()).Sub(time.Now())
 	enabled := true
-	hashKeys := false
+	hashKeys := true
 	defaultOpt := cacheConfig{
 		Addr:              "127.0.0.1:6379",
 		Enabled:           &enabled,
@@ -114,4 +131,19 @@ func getRedisDefaultOpt() cacheConfig {
 		DefaultExpiration: &midnight,
 	}
 	return defaultOpt
+}
+
+func (r *RedisDB) getCacheKey(key string) string {
+	Hashing := r.config.HashKeys
+	var shouldHash bool
+	if Hashing != nil {
+		shouldHash = *Hashing
+	}
+
+	key = fmt.Sprintf("%s:%s", r.config.Prefix, key)
+	if shouldHash {
+		key = hashKey(key)
+	}
+
+	return key
 }

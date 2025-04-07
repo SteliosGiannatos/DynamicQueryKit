@@ -2,6 +2,7 @@ package caching
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -142,6 +143,43 @@ func TestGetKey(t *testing.T) {
 
 			_, err = cache.Get(test.key)
 
+			assert.Nil(t, err)
+
+		}, "Unexpected panic for cache type: %s", cacheType)
+		_ = cache
+
+	}
+}
+
+func TestCacheIncrement(t *testing.T) {
+	testName := "TestCacheIncrement"
+	tests := []struct {
+		cacheType   string
+		expectPanic bool
+		prefix      string
+		key         string
+	}{
+		{
+			cacheType:   "redis",
+			expectPanic: false,
+			prefix:      "test:" + testName,
+			key:         "ip:123",
+		},
+		{
+			cacheType:   "memcached",
+			expectPanic: false,
+			prefix:      "test:" + testName,
+			key:         "ip:123",
+		},
+	}
+
+	for _, test := range tests {
+		cacheType := test.cacheType
+
+		cache := assert.NotPanics(t, func() {
+			hash := true
+			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix, HashKeys: &hash})
+			err := cache.CacheIncrement(test.key, 360*time.Second)
 			assert.Nil(t, err)
 
 		}, "Unexpected panic for cache type: %s", cacheType)

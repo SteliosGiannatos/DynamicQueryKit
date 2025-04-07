@@ -15,6 +15,7 @@ type (
 		SetKeyIndex(route string, key string) error
 		DeleteCacheIndex(indexKey string) (int, error)
 		Get(key string) ([]byte, error)
+		CacheIncrement(key string, expiration time.Duration) error
 	}
 )
 
