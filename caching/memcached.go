@@ -18,7 +18,7 @@ type (
 	}
 )
 
-// SetUp initializes the memcache connection
+// SetUpMemcachedDB initializes the memcache connection
 func SetUpMemcachedDB(opts *cacheConfig) *MemcachedDB {
 	m := &MemcachedDB{config: opts}
 	defaultOpts := getMemcachedDefaultOpt()
@@ -151,6 +151,16 @@ func (m *MemcachedDB) DeleteCacheIndex(indexKey string) (int, error) {
 	}
 
 	return evictedKeys, nil
+}
+
+// Get returns bytes from memcache
+func (m *MemcachedDB) Get(key string) ([]byte, error) {
+	key = fmt.Sprintf("%s:%s", m.config.Prefix, key)
+	item, err := m.database.Get(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	return item.Value, nil
 }
 
 func getMemcachedDefaultOpt() cacheConfig {

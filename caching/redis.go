@@ -68,6 +68,7 @@ func (r *RedisDB) SetKey(key string, value string, ttl *time.Duration) error {
 	return nil
 }
 
+// SetKeyIndex sets indexes for a key. Uses the underline set in redis
 func (r *RedisDB) SetKeyIndex(indexKey, member string) error {
 	ctx := context.Background()
 	indexKey = fmt.Sprintf("%s:%s:keys", r.config.Prefix, indexKey)
@@ -89,6 +90,16 @@ func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
 	}
 
 	return int(evictedKeys), nil
+}
+
+// Get gets the value of a key from redis
+func (r *RedisDB) Get(key string) ([]byte, error) {
+	key = fmt.Sprintf("%s:%s", r.config.Prefix, key)
+	item := r.database.Get(context.Background(), key)
+	if item.Err() != nil {
+		return []byte{}, item.Err()
+	}
+	return []byte(item.Val()), nil
 }
 
 func getRedisDefaultOpt() cacheConfig {

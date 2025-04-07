@@ -109,3 +109,43 @@ func TestSetKeyIndexAndDeleteCacheIndex(t *testing.T) {
 
 	}
 }
+
+func TestGetKey(t *testing.T) {
+	testName := "TestGetKey"
+	tests := []struct {
+		cacheType   string
+		expectPanic bool
+		prefix      string
+		key         string
+	}{
+		{
+			cacheType:   "redis",
+			expectPanic: false,
+			prefix:      "test:" + testName,
+			key:         "hello",
+		},
+		{
+			cacheType:   "memcached",
+			expectPanic: false,
+			prefix:      "test:" + testName,
+			key:         "hello",
+		},
+	}
+
+	for _, test := range tests {
+		cacheType := test.cacheType
+
+		cache := assert.NotPanics(t, func() {
+			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
+			err := cache.SetKey(test.key, test.prefix, nil)
+			assert.Nil(t, err)
+
+			_, err = cache.Get(test.key)
+
+			assert.Nil(t, err)
+
+		}, "Unexpected panic for cache type: %s", cacheType)
+		_ = cache
+
+	}
+}
