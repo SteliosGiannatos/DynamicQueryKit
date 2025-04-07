@@ -1,0 +1,167 @@
+package caching
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/bradfitz/gomemcache/memcache"
+)
+
+type (
+	//MemcachedDB provides a struct for the memcache implementation of caching
+	MemcachedDB struct {
+		database *memcache.Client
+		config   *cacheConfig
+	}
+)
+
+// SetUp initializes the memcache connection
+func SetUpMemcachedDB(opts *cacheConfig) *MemcachedDB {
+	m := &MemcachedDB{config: opts}
+	defaultOpts := getMemcachedDefaultOpt()
+
+	if m.config.Enabled == nil {
+		m.config.Enabled = defaultOpts.Enabled
+	}
+	if m.config.HashKeys == nil {
+		m.config.HashKeys = defaultOpts.HashKeys
+	}
+
+	if m.config.Addr == "" {
+		m.config.Addr = defaultOpts.Addr
+	}
+	if m.config.Prefix == "" {
+		m.config.Prefix = defaultOpts.Prefix
+	}
+	if m.config.DefaultExpiration == nil {
+		m.config.DefaultExpiration = defaultOpts.DefaultExpiration
+	}
+
+	m.database = memcache.New(m.config.Addr)
+	if m.database == nil {
+		slog.LogAttrs(context.Background(), slog.LevelError, "Failed to open cache connection", slog.String("source", "Cache"))
+		panic("Failed to open cache connection")
+	}
+
+	err := m.database.Ping()
+	if err != nil {
+		slog.LogAttrs(context.Background(), slog.LevelError, "Failed to open cache connection", slog.String("source", "Cache"), slog.String("error", err.Error()))
+		panic("Failed to open cache connection")
+	}
+	return m
+}
+
+// SetKeyIndex appends to the list of keys
+// A list of the cached keys is maintained in the cache with no expiration
+// so when it comes to invalidating routes with dynamic filters you know all the cached keys
+func (m *MemcachedDB) SetKeyIndex(route string, key string) error {
+	var keys []string
+
+	item, err := m.database.Get(fmt.Sprintf("%s:%s", m.config.Prefix, route))
+	if err == memcache.ErrCacheMiss {
+		keys = []string{}
+
+	} else if err != nil {
+		return err
+	} else {
+		err = json.Unmarshal(item.Value, &keys)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	// make sure the key does not already exist
+	for _, existingKey := range keys {
+		if existingKey == key {
+			slog.LogAttrs(context.Background(), slog.LevelDebug, "index key already exists", slog.String("source", route), slog.String("existingKey", existingKey), slog.String("cahceKey", key), slog.String("index key", fmt.Sprintf("%s:keys", route)))
+			return nil
+		}
+
+	}
+
+	keys = append(keys, key)
+
+	jsonKeys, err := json.Marshal(keys)
+
+	actualKey := fmt.Sprintf("%s:keys", route)
+	slog.LogAttrs(context.Background(), slog.LevelDebug, "generated index key", slog.String("source", route), slog.String("key", actualKey))
+
+	err = m.database.Set(&memcache.Item{Key: actualKey, Value: jsonKeys, Expiration: int32(m.config.DefaultExpiration.Seconds())})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteCacheIndex clears the cache indexes for a provided route
+func (m *MemcachedDB) DeleteCacheIndex(route string) (int, error) {
+	var keys []string
+	cacheKey := fmt.Sprintf("%s:keys", route)
+
+	item, err := m.database.Get(cacheKey)
+	if err == memcache.ErrCacheMiss {
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "no cache for provided key", slog.String("key", cacheKey), slog.String("error", err.Error()))
+		return 0, nil
+
+	}
+
+	err = json.Unmarshal(item.Value, &keys)
+	if err != nil {
+		slog.LogAttrs(context.Background(), slog.LevelError, "error deleting cache index", slog.String("key", cacheKey), slog.String("error", err.Error()))
+		return 0, err
+	}
+
+	if len(keys) == 0 {
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "no keys under", slog.String("key", cacheKey))
+		return 0, nil
+	}
+
+	for _, value := range keys {
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting cache", slog.String("key", value))
+		m.database.Delete(value)
+	}
+
+	err = m.database.Delete(cacheKey)
+	slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting index key", slog.String("key", cacheKey))
+	if err != nil {
+		slog.LogAttrs(context.Background(), slog.LevelError, "error deleting cache index", slog.String("key", cacheKey))
+	}
+
+	return len(keys), nil
+}
+
+// SetKey easier way to set a cache key
+// Default expiration date is today at midnight
+func (m *MemcachedDB) SetKey(key string, value string, ttl *time.Duration) error {
+	var expiration int32
+
+	if ttl != nil {
+		expiration = int32(ttl.Seconds())
+	} else {
+		expiration = int32(m.config.DefaultExpiration.Seconds())
+	}
+
+	err := m.database.Set(&memcache.Item{Key: fmt.Sprintf("%s:%s", m.config.Prefix, key), Value: []byte(value), Expiration: expiration})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getMemcachedDefaultOpt() cacheConfig {
+	midnight := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+1, 0, 0, 0, 0, time.Now().Location()).Sub(time.Now())
+	enabled := true
+	hashKeys := false
+	defaultOpt := cacheConfig{
+		Addr:              "127.0.0.1:11211",
+		Enabled:           &enabled,
+		Prefix:            "default",
+		HashKeys:          &hashKeys,
+		DefaultExpiration: &midnight,
+	}
+	return defaultOpt
+}
