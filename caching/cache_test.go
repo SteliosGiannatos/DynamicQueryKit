@@ -70,8 +70,8 @@ func TestSetKey(t *testing.T) {
 	}
 }
 
-func TestSetKeyIndex(t *testing.T) {
-	testName := "TestSetKeyIndex"
+func TestSetKeyIndexAndDeleteCacheIndex(t *testing.T) {
+	testName := "TestSetKeyIndexAndDeleteCacheIndex"
 	tests := []struct {
 		cacheType   string
 		expectPanic bool
@@ -99,7 +99,11 @@ func TestSetKeyIndex(t *testing.T) {
 			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
 			err := cache.SetKeyIndex(test.key, test.prefix)
 			assert.Nil(t, err)
-			require.NotNil(t, cache, "Cache instance should not be nil for type: %s", cacheType)
+
+			evictedKeys, err := cache.DeleteCacheIndex(test.key)
+			assert.Nil(t, err)
+			assert.NotZero(t, evictedKeys)
+
 		}, "Unexpected panic for cache type: %s", cacheType)
 		_ = cache
 

@@ -13,6 +13,7 @@ type (
 		//if the ttl is not specified in the config. Then the expiration is at midnight
 		SetKey(key string, value string, ttl *time.Duration) error
 		SetKeyIndex(route string, key string) error
+		DeleteCacheIndex(indexKey string) (int, error)
 	}
 )
 
