@@ -177,11 +177,46 @@ func TestCacheIncrement(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			hash := true
-			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix, HashKeys: &hash})
+			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
 			err := cache.CacheIncrement(test.key, 360*time.Second)
 			assert.Nil(t, err)
 
+		}, "Unexpected panic for cache type: %s", cacheType)
+		_ = cache
+
+	}
+}
+
+func TestDefaultPrefix(t *testing.T) {
+	tests := []struct {
+		cacheType   string
+		expectPanic bool
+		prefix      string
+		key         string
+		HashKeys    bool
+	}{
+		{
+			cacheType:   "redis",
+			expectPanic: false,
+			key:         "hello",
+			HashKeys:    false,
+		},
+		{
+			cacheType:   "memcached",
+			expectPanic: false,
+			key:         "hello",
+			HashKeys:    true,
+		},
+	}
+
+	for _, test := range tests {
+		cacheType := test.cacheType
+
+		cache := assert.NotPanics(t, func() {
+			cache := GetCache(test.cacheType, &cacheConfig{HashKeys: &test.HashKeys})
+			err := cache.SetKey(test.key, test.key, nil)
+			assert.Nil(t, err)
+			require.NotNil(t, cache, "Cache instance should not be nil for type: %s", cacheType)
 		}, "Unexpected panic for cache type: %s", cacheType)
 		_ = cache
 

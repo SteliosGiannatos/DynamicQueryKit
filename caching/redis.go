@@ -122,7 +122,7 @@ func (r *RedisDB) CacheIncrement(key string, expiration time.Duration) error {
 func getRedisDefaultOpt() cacheConfig {
 	midnight := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+1, 0, 0, 0, 0, time.Now().Location()).Sub(time.Now())
 	enabled := true
-	hashKeys := true
+	hashKeys := false
 	defaultOpt := cacheConfig{
 		Addr:              "127.0.0.1:6379",
 		Enabled:           &enabled,
