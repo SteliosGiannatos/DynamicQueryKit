@@ -57,17 +57,19 @@ func SetUpMemcachedDB(opts *cacheConfig) *MemcachedDB {
 // SetKeyIndex appends to the list of keys
 // A list of the cached keys is maintained in the cache with no expiration
 // so when it comes to invalidating routes with dynamic filters you know all the cached keys
-func (m *MemcachedDB) SetKeyIndex(route string, key string) error {
-	var keys []string
+func (m *MemcachedDB) SetKeyIndex(indexKey string, member string) error {
+	member = fmt.Sprintf("%s:%s", m.config.Prefix, member)
+	indexKey = fmt.Sprintf("%s:%s:keys", m.config.Prefix, indexKey)
+	var members []string
 
-	item, err := m.database.Get(fmt.Sprintf("%s:%s", m.config.Prefix, route))
+	item, err := m.database.Get(indexKey)
 	if err == memcache.ErrCacheMiss {
-		keys = []string{}
+		members = []string{}
 
 	} else if err != nil {
 		return err
 	} else {
-		err = json.Unmarshal(item.Value, &keys)
+		err = json.Unmarshal(item.Value, &members)
 		if err != nil {
 			return err
 		}
@@ -75,22 +77,18 @@ func (m *MemcachedDB) SetKeyIndex(route string, key string) error {
 	}
 
 	// make sure the key does not already exist
-	for _, existingKey := range keys {
-		if existingKey == key {
-			slog.LogAttrs(context.Background(), slog.LevelDebug, "index key already exists", slog.String("source", route), slog.String("existingKey", existingKey), slog.String("cahceKey", key), slog.String("index key", fmt.Sprintf("%s:keys", route)))
+	for _, existingKey := range members {
+		if existingKey == member {
+			slog.LogAttrs(context.Background(), slog.LevelDebug, "index key already exists", slog.String("source", indexKey), slog.String("existingKey", existingKey), slog.String("cacheKey", member), slog.String("index key", indexKey))
 			return nil
 		}
-
 	}
 
-	keys = append(keys, key)
+	members = append(members, member)
 
-	jsonKeys, err := json.Marshal(keys)
+	jsonMembers, _ := json.Marshal(members)
 
-	actualKey := fmt.Sprintf("%s:keys", route)
-	slog.LogAttrs(context.Background(), slog.LevelDebug, "generated index key", slog.String("source", route), slog.String("key", actualKey))
-
-	err = m.database.Set(&memcache.Item{Key: actualKey, Value: jsonKeys, Expiration: int32(m.config.DefaultExpiration.Seconds())})
+	err = m.database.Set(&memcache.Item{Key: indexKey, Value: jsonMembers, Expiration: 0})
 	if err != nil {
 		return err
 	}
