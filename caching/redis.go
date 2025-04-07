@@ -68,16 +68,27 @@ func (r *RedisDB) SetKey(key string, value string, ttl *time.Duration) error {
 	return nil
 }
 
-func (r *RedisDB) SetKeyIndex(route, key string) error {
+func (r *RedisDB) SetKeyIndex(indexKey, member string) error {
 	ctx := context.Background()
-	indexKey := fmt.Sprintf("%s:%s:keys", r.config.Prefix, route)
-	member := fmt.Sprintf("%s:%s", r.config.Prefix, key)
+	indexKey = fmt.Sprintf("%s:%s:keys", r.config.Prefix, indexKey)
+	member = fmt.Sprintf("%s:%s", r.config.Prefix, member)
 
 	if err := r.database.SAdd(ctx, indexKey, member).Err(); err != nil {
 		return fmt.Errorf("failed to add member to set %q: %w", indexKey, err)
 	}
 
 	return nil
+}
+
+// DeleteCacheIndex clears the cache indexes for a provided route
+func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
+	indexKey = fmt.Sprintf("%s:%s:keys", r.config.Prefix, indexKey)
+	evictedKeys, err := r.database.Del(context.Background(), indexKey).Result()
+	if err != nil {
+		return int(evictedKeys), err
+	}
+
+	return int(evictedKeys), nil
 }
 
 func getRedisDefaultOpt() cacheConfig {

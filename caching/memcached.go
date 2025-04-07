@@ -114,40 +114,43 @@ func (m *MemcachedDB) SetKeyIndex(indexKey string, member string) error {
 }
 
 // DeleteCacheIndex clears the cache indexes for a provided route
-func (m *MemcachedDB) DeleteCacheIndex(route string) (int, error) {
-	var keys []string
-	cacheKey := fmt.Sprintf("%s:keys", route)
+func (m *MemcachedDB) DeleteCacheIndex(indexKey string) (int, error) {
+	var members []string
+	evictedKeys := 0
+	indexKey = fmt.Sprintf("%s:%s:keys", m.config.Prefix, indexKey)
 
-	item, err := m.database.Get(cacheKey)
+	item, err := m.database.Get(indexKey)
 	if err == memcache.ErrCacheMiss {
-		slog.LogAttrs(context.Background(), slog.LevelDebug, "no cache for provided key", slog.String("key", cacheKey), slog.String("error", err.Error()))
-		return 0, nil
-
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "no cache for provided key", slog.String("key", indexKey), slog.String("error", err.Error()))
+		return evictedKeys, nil
 	}
 
-	err = json.Unmarshal(item.Value, &keys)
+	err = json.Unmarshal(item.Value, &members)
 	if err != nil {
-		slog.LogAttrs(context.Background(), slog.LevelError, "error deleting cache index", slog.String("key", cacheKey), slog.String("error", err.Error()))
-		return 0, err
+		slog.LogAttrs(context.Background(), slog.LevelError, "error deleting cache index", slog.String("key", indexKey), slog.String("error", err.Error()))
+		return evictedKeys, err
 	}
 
-	if len(keys) == 0 {
-		slog.LogAttrs(context.Background(), slog.LevelDebug, "no keys under", slog.String("key", cacheKey))
-		return 0, nil
+	if len(members) == 0 {
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "no keys under", slog.String("key", indexKey))
+		return evictedKeys, nil
 	}
 
-	for _, value := range keys {
+	for _, value := range members {
 		slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting cache", slog.String("key", value))
-		m.database.Delete(value)
+		if err = m.database.Delete(value); err == nil || err == memcache.ErrCacheMiss {
+			evictedKeys++
+		}
 	}
 
-	err = m.database.Delete(cacheKey)
-	slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting index key", slog.String("key", cacheKey))
+	slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting index key", slog.String("key", indexKey), slog.Int("members evicted", evictedKeys))
+	err = m.database.Delete(indexKey)
+	evictedKeys++
 	if err != nil {
-		slog.LogAttrs(context.Background(), slog.LevelError, "error deleting cache index", slog.String("key", cacheKey))
+		slog.LogAttrs(context.Background(), slog.LevelWarn, "error deleting cache index", slog.String("key", indexKey))
 	}
 
-	return len(keys), nil
+	return evictedKeys, nil
 }
 
 func getMemcachedDefaultOpt() cacheConfig {
