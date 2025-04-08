@@ -1,4 +1,4 @@
-module github.com/SteliosGiannatos/dynamicquerykit
+module github.com/SteliosGiannatos/DynamicQueryKit
 
 go 1.24.2
 
