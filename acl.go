@@ -1,4 +1,4 @@
-package dynamicquerykit
+package dqk
 
 // HasPermission checks whether the user has a specific permission.
 // It takes a permission key (e.g., "view:users") and a map of the user's permissions,

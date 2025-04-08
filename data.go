@@ -1,4 +1,4 @@
-// Package dynamicquerykit provides helper functions to manage:
+// Package dqk provides helper functions to manage:
 // Caching with memcached, dynamic filter for queries, standard responses for
 // pagination, deleted/updated/created assets and deleted cache
 // provides distinct fields struct and an id that can be used for faster lookups
@@ -6,7 +6,7 @@
 // helper functions that execute database queries for update/delete/update and helper methods for pagination
 // both for manual query definition and automatically by wrapping your main query in a CTE.
 // database validation methods for user friendly messaged that can be shown as a response
-package dynamicquerykit
+package dqk
 
 import "time"
 

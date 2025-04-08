@@ -1,4 +1,4 @@
-package dynamicquerykit
+package dqk
 
 import (
 	"fmt"
