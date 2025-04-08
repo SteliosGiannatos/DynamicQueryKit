@@ -122,7 +122,7 @@ func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]st
 
 // ExtendFilters takes in n filters and returns a complete filter list
 func ExtendFilters(filters [][]Filters) []Filters {
-	var combination []Filters
+	combination := []Filters{}
 	for _, filterList := range filters {
 		combination = append(combination, filterList...)
 	}
