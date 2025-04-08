@@ -120,14 +120,12 @@ func DynamicFilters(f []Filters, q sq.SelectBuilder, queryParams map[string][]st
 	return q, cacheKeyParams
 }
 
-// ExtendFilters takes in two filters and appends one to the other
-// it always appends the smallest filter to the larger filter.
-// if both are equal size f1 gets appended to f2
-func ExtendFilters(f1 []Filters, f2 []Filters) []Filters {
-	if len(f1) > len(f2) {
-		f1 = append(f1, f2...)
-		return f1
+// ExtendFilters takes in n filters and returns a complete filter list
+func ExtendFilters(filters [][]Filters) []Filters {
+	combination := []Filters{}
+	for _, filterList := range filters {
+		combination = append(combination, filterList...)
 	}
-	f2 = append(f2, f1...)
-	return f2
+
+	return combination
 }

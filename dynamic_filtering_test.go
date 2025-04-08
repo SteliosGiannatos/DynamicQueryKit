@@ -345,9 +345,9 @@ func TestExtendFilters(t *testing.T) {
 				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
 			},
 			expected: []Filters{
+				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
 				{Name: "a", Operator: "=", DbField: "field1", FieldID: "1"},
 				{Name: "b", Operator: ">", DbField: "field2", FieldID: "2"},
-				{Name: "c", Operator: "<", DbField: "field3", FieldID: "3"},
 			},
 		},
 		{
@@ -388,7 +388,11 @@ func TestExtendFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ExtendFilters(tt.f1, tt.f2)
+			f := [][]Filters{
+				tt.f2,
+				tt.f1,
+			}
+			result := ExtendFilters(f)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
