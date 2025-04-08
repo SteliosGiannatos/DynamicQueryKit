@@ -55,9 +55,9 @@ type DistinctFieldNamesResponse struct {
 
 // DistinctFieldNames is the basic component of DistinctFieldNamesResponse
 type DistinctFieldNames struct {
-	ID    string `json:"id" xml:"id" yaml:"id" csv:"id"`
-	Name  string `json:"name" xml:"name" yaml:"name" csv:"name"`
-	Count int    `json:"count" xml:"count" yaml:"count" csv:"count"`
+	ID    string  `json:"id" xml:"id" yaml:"id" csv:"id"`
+	Name  *string `json:"name" xml:"name" yaml:"name" csv:"name"`
+	Count *int    `json:"count" xml:"count" yaml:"count" csv:"count"`
 }
 
 // IDs generic struct for getting the IDs of assets
