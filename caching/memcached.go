@@ -44,13 +44,13 @@ func SetUpMemcachedDB(opts *CacheConfig) *MemcachedDB {
 	m.database = memcache.New(m.config.Addr)
 	if m.database == nil {
 		slog.LogAttrs(context.Background(), slog.LevelError, "Failed to open cache connection", slog.String("source", "Cache"))
-		panic("Failed to open cache connection")
+		panic(fmt.Sprintf("Failed to open cache connection at %s\n", m.config.Addr))
 	}
 
 	err := m.database.Ping()
 	if err != nil {
 		slog.LogAttrs(context.Background(), slog.LevelError, "Failed to open cache connection", slog.String("source", "Cache"), slog.String("error", err.Error()))
-		panic("Failed to open cache connection")
+		panic(fmt.Sprintf("Failed to open cache connection at %s\n", m.config.Addr))
 	}
 	return m
 }
@@ -163,6 +163,19 @@ func (m *MemcachedDB) Get(key string) ([]byte, error) {
 		return []byte{}, err
 	}
 	return item.Value, nil
+}
+
+func (m *MemcachedDB) Delete(indexKeys ...string) (int, error) {
+	evictedKeys := 0
+	for _, value := range indexKeys {
+		slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting cache", slog.String("key", value))
+		if err := m.database.Delete(value); err == nil || err == memcache.ErrCacheMiss {
+			evictedKeys++
+		} else {
+			return evictedKeys, err
+		}
+	}
+	return evictedKeys, nil
 }
 
 func (m *MemcachedDB) CacheIncrement(key string, expiration time.Duration) error {

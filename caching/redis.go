@@ -44,7 +44,7 @@ func SetUpRedisDB(c *CacheConfig) Cache {
 	status := r.database.Ping(context.Background())
 	if status.Err() != nil {
 		slog.LogAttrs(context.Background(), slog.LevelError, "Failed to open cache connection", slog.String("source", "Cache"), slog.String("error", status.Err().Error()))
-		panic("Failed to open cache connection at %s\n")
+		panic(fmt.Sprintf("Failed to open cache connection at %s\n", r.config.Addr))
 	}
 	return r
 }
@@ -83,13 +83,28 @@ func (r *RedisDB) SetKeyIndex(indexKey, member string) error {
 
 // DeleteCacheIndex clears the cache indexes for a provided route
 func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
+	val := 0
 	indexKey = r.getCacheKey(indexKey + ":keys")
-	evictedKeys, err := r.database.Del(context.Background(), indexKey).Result()
+	keysToDelete, err := r.database.SMembers(context.Background(), indexKey).Result()
+
 	if err != nil {
-		return int(evictedKeys), err
+		return val, err
 	}
 
-	return int(evictedKeys), nil
+	keysToDelete = append(keysToDelete, indexKey)
+
+	evictedKeys, err := r.database.Del(context.Background(), keysToDelete...).Result()
+	if err != nil {
+		return val, err
+	}
+	val += int(evictedKeys)
+
+	return val, nil
+}
+
+func (r *RedisDB) Delete(indexKeys ...string) (int, error) {
+	res, err := r.database.Del(context.Background(), indexKeys...).Result()
+	return int(res), err
 }
 
 // Get gets the value of a key from redis
