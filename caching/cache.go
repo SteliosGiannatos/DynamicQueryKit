@@ -25,7 +25,7 @@ type (
 // it allows for easy benchmarks and swapping technologies
 // it is also easier for development to use redis for example
 // in order to access the cache data with an app like RedisInsight
-func GetCache(cacheType string, c *cacheConfig) Cache {
+func GetCache(cacheType string, c *CacheConfig) Cache {
 	var cache Cache
 	switch cacheType {
 	case "memcached":

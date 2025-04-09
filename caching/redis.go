@@ -13,12 +13,12 @@ type (
 	//RedisDB is the redis client implementation of cache
 	RedisDB struct {
 		database *redis.Client
-		config   *cacheConfig
+		config   *CacheConfig
 	}
 )
 
 // SetUpRedisDB initializes the redis instance and makes a ping to check the connection
-func SetUpRedisDB(c *cacheConfig) Cache {
+func SetUpRedisDB(c *CacheConfig) Cache {
 	r := &RedisDB{config: c}
 	defaultOpts := getRedisDefaultOpt()
 
@@ -119,11 +119,11 @@ func (r *RedisDB) CacheIncrement(key string, expiration time.Duration) error {
 	return nil
 }
 
-func getRedisDefaultOpt() cacheConfig {
+func getRedisDefaultOpt() CacheConfig {
 	midnight := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+1, 0, 0, 0, 0, time.Now().Location()).Sub(time.Now())
 	enabled := true
 	hashKeys := false
-	defaultOpt := cacheConfig{
+	defaultOpt := CacheConfig{
 		Addr:              "127.0.0.1:6379",
 		Enabled:           &enabled,
 		Prefix:            "default",

@@ -23,11 +23,11 @@ func TestGetCache(t *testing.T) {
 
 		if test.expectPanic {
 			assert.Panics(t, func() {
-				GetCache(test.cacheType, &cacheConfig{Prefix: "tmp:test"})
+				GetCache(test.cacheType, &CacheConfig{Prefix: "tmp:test"})
 			}, "Expected panic for cache type: %s", cacheType)
 		} else {
 			cache := assert.NotPanics(t, func() {
-				cache := GetCache(test.cacheType, &cacheConfig{Prefix: "tmp:test"})
+				cache := GetCache(test.cacheType, &CacheConfig{Prefix: "tmp:test"})
 				require.NotNil(t, cache, "Cache instance should not be nil for type: %s", cacheType)
 			}, "Unexpected panic for cache type: %s", cacheType)
 			_ = cache
@@ -61,7 +61,7 @@ func TestSetKey(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
+			cache := GetCache(test.cacheType, &CacheConfig{Prefix: test.prefix})
 			err := cache.SetKey(test.key, test.prefix, nil)
 			assert.Nil(t, err)
 			require.NotNil(t, cache, "Cache instance should not be nil for type: %s", cacheType)
@@ -97,7 +97,7 @@ func TestSetKeyIndexAndDeleteCacheIndex(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
+			cache := GetCache(test.cacheType, &CacheConfig{Prefix: test.prefix})
 			err := cache.SetKeyIndex(test.key, test.prefix)
 			assert.Nil(t, err)
 
@@ -137,7 +137,7 @@ func TestGetKey(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
+			cache := GetCache(test.cacheType, &CacheConfig{Prefix: test.prefix})
 			err := cache.SetKey(test.key, test.prefix, nil)
 			assert.Nil(t, err)
 
@@ -177,7 +177,7 @@ func TestCacheIncrement(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			cache := GetCache(test.cacheType, &cacheConfig{Prefix: test.prefix})
+			cache := GetCache(test.cacheType, &CacheConfig{Prefix: test.prefix})
 			err := cache.CacheIncrement(test.key, 360*time.Second)
 			assert.Nil(t, err)
 
@@ -213,7 +213,7 @@ func TestDefaultPrefix(t *testing.T) {
 		cacheType := test.cacheType
 
 		cache := assert.NotPanics(t, func() {
-			cache := GetCache(test.cacheType, &cacheConfig{HashKeys: &test.HashKeys})
+			cache := GetCache(test.cacheType, &CacheConfig{HashKeys: &test.HashKeys})
 			err := cache.SetKey(test.key, test.key, nil)
 			assert.Nil(t, err)
 			require.NotNil(t, cache, "Cache instance should not be nil for type: %s", cacheType)

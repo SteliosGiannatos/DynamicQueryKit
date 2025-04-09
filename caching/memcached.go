@@ -15,12 +15,12 @@ type (
 	//MemcachedDB provides a struct for the memcache implementation of caching
 	MemcachedDB struct {
 		database *memcache.Client
-		config   *cacheConfig
+		config   *CacheConfig
 	}
 )
 
 // SetUpMemcachedDB initializes the memcache connection
-func SetUpMemcachedDB(opts *cacheConfig) *MemcachedDB {
+func SetUpMemcachedDB(opts *CacheConfig) *MemcachedDB {
 	m := &MemcachedDB{config: opts}
 	defaultOpts := getMemcachedDefaultOpt()
 
@@ -196,11 +196,11 @@ func (m *MemcachedDB) CacheIncrement(key string, expiration time.Duration) error
 	return nil
 }
 
-func getMemcachedDefaultOpt() cacheConfig {
+func getMemcachedDefaultOpt() CacheConfig {
 	midnight := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()+1, 0, 0, 0, 0, time.Now().Location()).Sub(time.Now())
 	enabled := true
 	hashKeys := false
-	defaultOpt := cacheConfig{
+	defaultOpt := CacheConfig{
 		Addr:              "127.0.0.1:11211",
 		Enabled:           &enabled,
 		Prefix:            "default",

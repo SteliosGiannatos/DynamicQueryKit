@@ -2,7 +2,7 @@ package caching
 
 import "time"
 
-type cacheConfig struct {
+type CacheConfig struct {
 	//Addr is the cache DSN.
 	// memcached default: "127.0.0.1:11211"
 	// redis default: "127.0.0.1:6379"
