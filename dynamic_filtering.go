@@ -84,22 +84,22 @@ func BuildFilterConditions(filters []Filters, values map[string][]string) ([]sq.
 		}
 		if hasNullOrNot {
 			WhereConditions = append(WhereConditions, sq.Expr(fmt.Sprintf("%s %s", filter.DbField, filter.Operator)))
-			conditionsSet[filter.DbField] = filter.Operator
+			conditionsSet[filter.DbField+filter.Operator] = filter.Operator
 			continue
 		}
 		if filter.Operator == "IN" && !hasNullOrNot {
 			WhereConditions = append(WhereConditions, sq.Eq{filter.DbField: allowedValues})
-			conditionsSet[filter.DbField] = strings.Join(allowedValues, ",")
+			conditionsSet[filter.DbField+filter.Operator] = strings.Join(allowedValues, ",")
 			continue
 		}
 		for _, value := range allowedValues {
 			if useHaving {
 				HavingConditions = append(HavingConditions, sq.Expr(fmt.Sprintf("%s %s ?", filter.DbField, filter.Operator), value))
-				conditionsSet[filter.DbField] = value
+				conditionsSet[filter.DbField+filter.Operator] = value
 				continue
 			}
 			WhereConditions = append(WhereConditions, sq.Expr(fmt.Sprintf("%s %s ?", filter.DbField, filter.Operator), value))
-			conditionsSet[filter.DbField] = value
+			conditionsSet[filter.DbField+filter.Operator] = value
 		}
 	}
 	return WhereConditions, HavingConditions, conditionsSet
