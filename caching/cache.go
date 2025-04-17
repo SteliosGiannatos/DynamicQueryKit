@@ -16,6 +16,7 @@ type (
 		DeleteCacheIndex(indexKey string) (int, error)
 		Get(key string) ([]byte, error)
 		CacheIncrement(key string, expiration time.Duration) error
+		Delete(keys ...string) (int, error)
 	}
 )
 
