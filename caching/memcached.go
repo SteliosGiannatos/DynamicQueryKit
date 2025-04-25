@@ -169,6 +169,7 @@ func (m *MemcachedDB) Delete(indexKeys ...string) (int, error) {
 	evictedKeys := 0
 	for _, value := range indexKeys {
 		slog.LogAttrs(context.Background(), slog.LevelDebug, "deleting cache", slog.String("key", value))
+		value = m.getCacheKey(value)
 		if err := m.database.Delete(value); err == nil || err == memcache.ErrCacheMiss {
 			evictedKeys++
 		} else {

@@ -103,6 +103,10 @@ func (r *RedisDB) DeleteCacheIndex(indexKey string) (int, error) {
 }
 
 func (r *RedisDB) Delete(indexKeys ...string) (int, error) {
+	for i := range indexKeys {
+		indexKeys[i] = r.getCacheKey(indexKeys[i])
+	}
+
 	res, err := r.database.Del(context.Background(), indexKeys...).Result()
 	return int(res), err
 }
