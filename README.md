@@ -91,25 +91,27 @@ stack := dynamicquerykit.CreateStack(
 
 http.Handle("/", stack(http.HandlerFunc(myHandler)))
 ```
+or even better. Add the handlers to your server mux
+
+```go
+func main() {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /v1/health", controllers.GetHealth)
+
+	middlewareStack := dqk.CreateStack(dqk.Logging, dqk.Cors)
+
+	server := http.Server{
+        Addr:    ":8080",
+		Handler: middlewareStack(mux),
+	}
+
+	server.ListenAndServe()
+}
+
+```
 
 Use `CreateStack` to compose middlewares easily, including built-in `Logging` and `Cors`.
-
----
-
-## 🥪 Testing
-
-Tests cover all utilities:
-
-- Body decoding (valid/invalid/malformed input)
-- Permission logic
-- Middleware execution
-- Pagination query generation
-
-You can run all tests with:
-
-```bash
-go test ./...
-```
 
 ---
 
@@ -119,6 +121,49 @@ DynamicQueryKit is designed to be:
 
 - **Minimal**: No unnecessary dependencies
 - **Composable**: Everything is made to work together or independently
-- **Practical**: Targets real problems when building APIs in Go
+- **Practical**: Targets real problems when building APIs in Go. Especially dynamic queries
 
 ---
+
+
+## Example workflow
+
+
+
+- Specify filters
+
+```go
+filters := []dqk.filers{
+    {Name: "color", Operator: "IN", DbField: "colors.name", FieldID: "colors.id"},                                                      // added FieldID
+    // ... any other columns
+}
+```
+
+- Make your base query dqk uses squirrel for query building
+```go
+myquery := sq.Select("id,name").From("cloths as c").Join("colors as cl ON cl.id = c.color_id")
+```
+
+- Get user **request parameters** -> params["color"] = ["blue","red"]
+- Pass the params and the base query with your filters to dqk.DynamicFilters
+
+```go
+query, _ := dqk.DynamicFilters(filters, myquery, r.URL.Query()) //or pass your params variable
+
+// query = sq.Select("id,name").From("cloths as c").Join("colors as cl ON cl.id = c.color_id").Where("color IN (blue,red)")
+```
+
+- (optional) if you want pagination 
+```go
+paginationQuery := dqk.GetPaginationQuery(query)
+// do not limit the pagination query, you will only get the number you specified as limit
+query = query.limit(mylimit).offset(myoffset)
+query = query.OrderBy(dqk.OrderValidation(r.URL.Query().get("order_by"),r.URL.Query().Get("order_direction"),filters))
+// Optionally you can specify nulls last
+// query = query.OrderBy(dqk.OrderValidation(r.URL.Query().get("order_by"),r.URL.Query().Get("order_direction"),filters + " NULLS LAST"))
+```
+
+
+
+
+
