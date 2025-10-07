@@ -8,7 +8,10 @@
 // database validation methods for user friendly messaged that can be shown as a response
 package dqk
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // ErrorResponse standard for errors
 type ErrorResponse struct {
@@ -25,12 +28,63 @@ type Pagination struct {
 	Limit       int  `json:"limit" xml:"limit" yaml:"limit" csv:"limit"`
 }
 
+const (
+	tokenNull    = "__NULL__"
+	tokenNotNull = "__NOT_NULL__"
+)
+
 // Filters standard for allowed filters
 type Filters struct {
 	Name     string `json:"name" xml:"name" yaml:"name" csv:"name"`
 	Operator string `json:"operator" xml:"operator" yaml:"operator" csv:"operator"`
 	DbField  string `json:"db_field" xml:"db_field" yaml:"db_field" csv:"db_field"`
 	FieldID  string `json:"field_id" xml:"field_id" yaml:"field_id" csv:"field_id"`
+}
+
+func (f *Filters) IsAggregate() bool {
+	var allowedAggregateFunctions = []string{
+		"count",
+		"sum",
+		"min",
+		"max",
+		"stddev",
+		"variance",
+	}
+
+	lower := strings.ToLower(f.DbField)
+	for _, agg := range allowedAggregateFunctions {
+		if strings.HasPrefix(lower, agg+"(") {
+			return true
+		}
+	}
+	return false
+
+}
+
+func (f *Filters) HasNullOrNotNull(values ...string) bool {
+	hasNullOrNot := false
+	for _, value := range values {
+		switch value {
+		case tokenNotNull, tokenNull:
+			hasNullOrNot = true
+		}
+	}
+	return hasNullOrNot
+}
+
+func (f *Filters) ApplyNullToken(values ...string) bool {
+	applied := false
+	for _, value := range values {
+		switch value {
+		case tokenNull:
+			f.Operator = "IS NULL"
+			applied = true
+		case tokenNotNull:
+			f.Operator = "IS NOT NULL"
+			applied = true
+		}
+	}
+	return applied
 }
 
 // DeletedCacheResponse standard response for routes that delete cache

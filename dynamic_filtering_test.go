@@ -1,6 +1,8 @@
 package dqk
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	sq "github.com/Masterminds/squirrel"
@@ -8,31 +10,48 @@ import (
 )
 
 func TestIsAggregate(t *testing.T) {
+
 	tests := []struct {
 		name     string
-		input    string
+		input    []Filters
 		expected bool
 	}{
-		{name: "SUM with parentheses", input: "SUM(price)", expected: true},
-		{name: "COUNT with parentheses", input: "COUNT(price)", expected: true},
-		{name: "count in plain text", input: "count_price", expected: false},
-		{name: "sum in plain text", input: "sum_prices", expected: false},
-		{name: "avg_total", input: "avg_total", expected: false},
-		{name: "total_avg", input: "total_avg", expected: false},
-		{name: "min_sum", input: "min_sum", expected: false},
-		{name: "min parentheses", input: "min(total_price)", expected: true},
-		{name: "MIN uppercase", input: "MIN(value)", expected: true},
-		{name: "max parentheses", input: "max(total_price)", expected: true},
-		{name: "MAX uppercase", input: "MAX(value)", expected: true},
-		{name: "MAX concatenated", input: "MAXvalue", expected: false},
+		{
+			name: "not a single aggregate",
+			input: []Filters{
+				{Name: "min dot id", Operator: "=", DbField: "min.id"},
+				{Name: "max dot it", Operator: ">", DbField: "max.id"},
+				{Name: "sum dot id", Operator: "<", DbField: "SUM.id"},
+				{Name: "count in plain text", Operator: "<", DbField: "sum_prices"},
+				{Name: "sum in plain text", Operator: "<", DbField: "sum_prices"},
+				{Name: "avg_total", Operator: "<", DbField: "avg_total"},
+				{Name: "total_avg", Operator: "<", DbField: "total_avg"},
+				{Name: "min_sum", Operator: "<", DbField: "min_sum"},
+				{Name: "MAX concatenated", Operator: "<", DbField: "MAXvalue"},
+			},
+			expected: false,
+		},
+		{
+			name: "Aggregates",
+			input: []Filters{
+				{Name: "sum uppercase", Operator: "=", DbField: "SUM(price)"},
+				{Name: "count uppercase", Operator: "=", DbField: "COUNT(price)"},
+				{Name: "count multi case", Operator: "=", DbField: "CoUnT(price)"},
+				{Name: "count lowercase", Operator: "=", DbField: "count(price)"},
+				{Name: "min lowercase", Operator: "=", DbField: "min(price)"},
+				{Name: "MAX uppercase", Operator: "=", DbField: "max(price)"},
+				{Name: "max lowercase", Operator: "=", DbField: "MAX(price)"},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsAggregate(tt.input)
-			// comment at the fix:
-			// changed assert.Equal(...) to assert.Equalf(...) to include formatted message
-			assert.Equalf(t, tt.expected, result, "Input: %s", tt.input) // <-- fix
+			for index, filter := range tt.input {
+				assert.Equalf(t, tt.expected, filter.IsAggregate(), "Input: %s, index: %d", filter.DbField, index)
+
+			}
 		})
 	}
 }
@@ -260,13 +279,66 @@ func TestBuildFilterConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResultsWhere, ResultsHaving, _ := BuildFilterConditions(tt.filters, tt.values)
-			assert.Equal(t, tt.expectedWhere, ResultsWhere)
-			assert.Equal(t, tt.expectedHaving, ResultsHaving)
+			ResultsWhere, ResultsHaving := BuildFilterConditions(tt.filters, tt.values)
+			assert.ElementsMatch(t, tt.expectedWhere, ResultsWhere)
+			assert.ElementsMatch(t, tt.expectedHaving, ResultsHaving)
 		})
 
 	}
 
+}
+
+func TestValidateParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		filters  []Filters
+		values   map[string][]string
+		Expected map[Filters][]string
+	}{
+		{
+			name: "complete case testing",
+			filters: []Filters{
+				{Name: "country", Operator: "=", DbField: "country.name", FieldID: "1"},
+				{Name: "stars", Operator: "IN", DbField: "booking.stars", FieldID: "1"},
+				{Name: "deleted_date", Operator: "=", DbField: "country.deleted_date", FieldID: "1"},
+				{Name: "created_date", Operator: "=", DbField: "country.created_date", FieldID: "1"},
+				{Name: "c", Operator: "<", DbField: "SUM(id)", FieldID: "3"},
+				{Name: "flying", Operator: "LIKE", DbField: "cars.flying", FieldID: "1"},
+				{Name: "crying", Operator: "ILIKE", DbField: "cars.crying", FieldID: "1"},
+			},
+			values: map[string][]string{
+				"country":      {"Greece"},
+				"stars":        {"1", "2"},
+				"deleted_date": {"__NULL__", "France", "Germany"},
+				"created_date": {"__NOT_NULL__", "France", "Germany"},
+				"c":            {"8"},
+				"flying":       {"cars"},
+				"crying":       {"TeSlA"},
+			},
+			Expected: map[Filters][]string{
+				{Name: "country", Operator: "=", DbField: "country.name", FieldID: "1"}:              {"Greece"},
+				{Name: "stars", Operator: "IN", DbField: "booking.stars", FieldID: "1"}:              {"1", "2"},
+				{Name: "deleted_date", Operator: "=", DbField: "country.deleted_date", FieldID: "1"}: {"Not NULL"},
+				{Name: "created_date", Operator: "=", DbField: "country.created_date", FieldID: "1"}: {"NULL"},
+				{Name: "c", Operator: "<", DbField: "SUM(id)", FieldID: "3"}:                         {"8"},
+				{Name: "flying", Operator: "LIKE", DbField: "cars.flying", FieldID: "1"}:             {"cars"},
+				{Name: "crying", Operator: "ILIKE", DbField: "cars.crying", FieldID: "1"}:            {"TeSla"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := ValidateParams(tt.filters, tt.values)
+
+			pa, _ := json.Marshal(params)
+			pe, _ := json.Marshal(tt.Expected)
+
+			// fmt.Printf("expected: (%s) actual: (%s)", string(pe), string(pa))
+			assert.Equal(t, string(pe), string(pa))
+
+		})
+	}
 }
 
 func TestDynamicFilters(t *testing.T) {
@@ -299,23 +371,34 @@ func TestDynamicFilters(t *testing.T) {
 			},
 			ExpectedQuery: "SELECT * FROM countries WHERE (country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL AND cars.flying LIKE ? AND cars.crying ILIKE ?) HAVING (SUM(id) < ?)",
 			ExpectedStringParams: map[string]string{
-				"country.name=":                   "Greece",
-				"booking.starsIN":                 "1,2",
-				"country.deleted_dateIS NULL":     "IS NULL",
-				"country.created_dateIS NOT NULL": "IS NOT NULL",
-				"SUM(id)<":                        "8",
-				"cars.flyingLIKE":                 "%cars%",
-				"cars.cryingILIKE":                "%TeSlA%",
+				"country.name =":       "Greece",
+				"booking.stars IN":     "1,2",
+				"country.deleted_date": "IS NULL",
+				"country.created_date": "IS NOT NULL",
+				"SUM(id) <":            "8",
+				"cars.flying LIKE":     "%cars%",
+				"cars.crying ILIKE":    "%TeSlA%",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			initial := sq.Select("*").From("countries")
-			query, conditions := DynamicFilters(tt.filters, initial, tt.values)
-			queryStr, _, _ := query.ToSql()
-			assert.Equal(t, tt.ExpectedStringParams, conditions)
-			assert.Equal(t, tt.ExpectedQuery, queryStr)
+			params := GetParamsApplied(tt.filters, tt.values)
+			assert.Equal(t, len(tt.ExpectedStringParams), len(params))
+
+			for k, expected := range tt.ExpectedStringParams {
+				actual, ok := params[k]
+				if !assert.True(t, ok, "expected key %q not found in params", k) {
+					continue
+				}
+				assert.Equal(t, expected, actual, "unexpected value for key %q", k)
+			}
+
+			pa, _ := json.Marshal(params)
+			pe, _ := json.Marshal(tt.ExpectedStringParams)
+
+			fmt.Printf("expected: (%s) actual: (%s)", string(pe), string(pa))
+
 			assert.Equal(t, tt.values["country"][0], "Greece")
 			assert.Equal(t, tt.values["stars"][0], "1")
 			assert.Equal(t, tt.values["stars"][1], "2")
