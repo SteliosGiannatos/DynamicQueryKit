@@ -3,6 +3,7 @@ package dqk
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"testing"
 
 	sq "github.com/Masterminds/squirrel"
@@ -147,11 +148,10 @@ func TestAreFiltersAggregate(t *testing.T) {
 
 func TestBuildFilterConditions(t *testing.T) {
 	tests := []struct {
-		name           string
-		filters        []Filters
-		values         map[string][]string
-		expectedWhere  []sq.Sqlizer
-		expectedHaving []sq.Sqlizer
+		name         string
+		filters      []Filters
+		values       map[string][]string
+		Conditionals []Conditional
 	}{
 		{
 			name: "present in filters only where claus",
@@ -165,13 +165,23 @@ func TestBuildFilterConditions(t *testing.T) {
 				"b": {"5"},
 				"c": {"8"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Expr("min.id = ?", "5"),
-				sq.Expr("max.id > ?", "5"),
-				sq.Expr("SUM.id < ?", "8"),
-			},
-			expectedHaving: []sq.Sqlizer{},
-		},
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("min.id = ?", "5"),
+					TokenWhere,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("max.id > ?", "5"),
+					TokenWhere,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("SUM.id < ?", "8"),
+					TokenWhere,
+					[]string{"8"},
+				),
+			}},
 		{
 			name: "present in filters only having claus",
 			filters: []Filters{
@@ -184,11 +194,22 @@ func TestBuildFilterConditions(t *testing.T) {
 				"b": {"5"},
 				"c": {"8"},
 			},
-			expectedWhere: []sq.Sqlizer{},
-			expectedHaving: []sq.Sqlizer{
-				sq.Expr("MIN(id) = ?", "5"),
-				sq.Expr("max(id) > ?", "5"),
-				sq.Expr("SUM(id) < ?", "8"),
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("MIN(id) = ?", "5"),
+					TokenHaving,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("max(id) > ?", "5"),
+					TokenHaving,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("SUM(id) < ?", "8"),
+					TokenHaving,
+					[]string{"8"},
+				),
 			},
 		},
 		{
@@ -202,22 +223,56 @@ func TestBuildFilterConditions(t *testing.T) {
 				{Name: "f", Operator: "<", DbField: "SUM.id", FieldID: "3"},
 			},
 			values: map[string][]string{
-				"a": {"5"},
-				"b": {"5"},
-				"c": {"8"},
-				"d": {"9"},
-				"e": {"1"},
-				"f": {"hello"},
+				"a":      {"5"},
+				"b":      {"5"},
+				"c":      {"8"},
+				"d":      {"9"},
+				"e":      {"1"},
+				"f":      {"hello"},
+				"limit":  {"100"},
+				"offset": {"200"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Expr("min.id = ?", "9"),
-				sq.Expr("max.id > ?", "1"),
-				sq.Expr("SUM.id < ?", "hello"),
-			},
-			expectedHaving: []sq.Sqlizer{
-				sq.Expr("MIN(id) = ?", "5"),
-				sq.Expr("max(id) > ?", "5"),
-				sq.Expr("SUM(id) < ?", "8"),
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("MIN(id) = ?", "5"),
+					TokenHaving,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("max(id) > ?", "5"),
+					TokenHaving,
+					[]string{"5"},
+				),
+				NewConditional(
+					sq.Expr("SUM(id) < ?", "8"),
+					TokenHaving,
+					[]string{"8"},
+				),
+				NewConditional(
+					sq.Expr("min.id = ?", "9"),
+					TokenWhere,
+					[]string{"9"},
+				),
+				NewConditional(
+					sq.Expr("max.id > ?", "1"),
+					TokenWhere,
+					[]string{"1"},
+				),
+				NewConditional(
+					sq.Expr("SUM.id < ?", "hello"),
+					TokenWhere,
+					[]string{"hello"},
+				),
+				NewConditional(
+					sq.Expr("limit ?", "100"),
+					TokenLimit,
+					[]string{"100"},
+				),
+				NewConditional(
+					sq.Expr("offset ?", "200"),
+					TokenOffset,
+					[]string{"200"},
+				),
 			},
 		},
 		{
@@ -228,10 +283,13 @@ func TestBuildFilterConditions(t *testing.T) {
 			values: map[string][]string{
 				"country": {"Greece"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Expr("country.name LIKE ?", "%Greece%"),
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("country.name LIKE ?", "%Greece%"),
+					TokenWhere,
+					[]string{"%Greece%"},
+				),
 			},
-			expectedHaving: []sq.Sqlizer{},
 		},
 		{
 			name: "ILIKE filtering",
@@ -241,10 +299,13 @@ func TestBuildFilterConditions(t *testing.T) {
 			values: map[string][]string{
 				"country": {"Greece"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Expr("country.name ILIKE ?", "%Greece%"),
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("country.name ILIKE ?", "%Greece%"),
+					TokenWhere,
+					[]string{"%Greece%"},
+				),
 			},
-			expectedHaving: []sq.Sqlizer{},
 		},
 		{
 			name: "IN filtering",
@@ -254,10 +315,13 @@ func TestBuildFilterConditions(t *testing.T) {
 			values: map[string][]string{
 				"country": {"Greece", "France", "Germany"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Eq{"country.name": []string{"Greece", "France", "Germany"}},
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Eq{"country.name": []string{"Greece", "France", "Germany"}},
+					TokenWhere,
+					[]string{"Greece", "France", "Germany"},
+				),
 			},
-			expectedHaving: []sq.Sqlizer{},
 		},
 		{
 			name: "NULL & NOT NULL",
@@ -269,19 +333,25 @@ func TestBuildFilterConditions(t *testing.T) {
 				"created_date": {"__NOT_NULL__", "France", "Germany"},
 				"deleted_date": {"__NULL__", "France", "Germany"},
 			},
-			expectedWhere: []sq.Sqlizer{
-				sq.Expr("country.created_date IS NOT NULL"),
-				sq.Expr("country.deleted_date IS NULL"),
+			Conditionals: []Conditional{
+				NewConditional(
+					sq.Expr("country.created_date IS NOT NULL"),
+					TokenWhere,
+					[]string{"__NOT_NULL__", "France", "Germany"},
+				),
+				NewConditional(
+					sq.Expr("country.deleted_date IS NULL"),
+					TokenWhere,
+					[]string{"__NULL__", "France", "Germany"},
+				),
 			},
-			expectedHaving: []sq.Sqlizer{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResultsWhere, ResultsHaving := BuildFilterConditions(tt.filters, tt.values)
-			assert.ElementsMatch(t, tt.expectedWhere, ResultsWhere)
-			assert.ElementsMatch(t, tt.expectedHaving, ResultsHaving)
+			conditionals := BuildFilterConditions(tt.filters, tt.values)
+			assert.ElementsMatch(t, tt.Conditionals, conditionals)
 		})
 
 	}
@@ -314,6 +384,8 @@ func TestValidateParams(t *testing.T) {
 				"c":            {"8"},
 				"flying":       {"cars"},
 				"crying":       {"TeSlA"},
+				"limit":        {"100"},
+				"offset":       {"200"},
 			},
 			Expected: map[Filters][]string{
 				{Name: "country", Operator: "=", DbField: "country.name", FieldID: "1"}:              {"Greece"},
@@ -323,6 +395,8 @@ func TestValidateParams(t *testing.T) {
 				{Name: "c", Operator: "<", DbField: "SUM(id)", FieldID: "3"}:                         {"8"},
 				{Name: "flying", Operator: "LIKE", DbField: "cars.flying", FieldID: "1"}:             {"cars"},
 				{Name: "crying", Operator: "ILIKE", DbField: "cars.crying", FieldID: "1"}:            {"TeSla"},
+				{Name: "limit", Operator: "", DbField: "", FieldID: ""}:                              {"100"},
+				{Name: "offset", Operator: "", DbField: "", FieldID: ""}:                             {"200"},
 			},
 		},
 	}
@@ -334,7 +408,7 @@ func TestValidateParams(t *testing.T) {
 			pa, _ := json.Marshal(params)
 			pe, _ := json.Marshal(tt.Expected)
 
-			// fmt.Printf("expected: (%s) actual: (%s)", string(pe), string(pa))
+			fmt.Printf("expected: (%s) actual: (%s)", string(pe), string(pa))
 			assert.Equal(t, string(pe), string(pa))
 
 		})
@@ -369,7 +443,7 @@ func TestDynamicFilters(t *testing.T) {
 				"flying":       {"cars"},
 				"crying":       {"TeSlA"},
 			},
-			ExpectedQuery: "SELECT * FROM countries WHERE (country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL AND cars.flying LIKE ? AND cars.crying ILIKE ?) HAVING (SUM(id) < ?)",
+			ExpectedQuery: "SELECT * FROM countries WHERE cars.flying LIKE ? AND cars.crying ILIKE ? AND country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL HAVING SUM(id) < ?",
 			ExpectedStringParams: map[string]string{
 				"country.name =":       "Greece",
 				"booking.stars IN":     "1,2",
@@ -383,21 +457,14 @@ func TestDynamicFilters(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := GetParamsApplied(tt.filters, tt.values)
-			assert.Equal(t, len(tt.ExpectedStringParams), len(params))
 
-			for k, expected := range tt.ExpectedStringParams {
-				actual, ok := params[k]
-				if !assert.True(t, ok, "expected key %q not found in params", k) {
-					continue
-				}
-				assert.Equal(t, expected, actual, "unexpected value for key %q", k)
-			}
+			q := sq.Select("*").From("countries")
+			v := maps.Clone(tt.values)
 
-			pa, _ := json.Marshal(params)
-			pe, _ := json.Marshal(tt.ExpectedStringParams)
+			query := DynamicFilters(tt.filters, q, v)
 
-			fmt.Printf("expected: (%s) actual: (%s)", string(pe), string(pa))
+			stringQuery, _, _ := query.ToSql()
+			assert.Equal(t, tt.ExpectedQuery, stringQuery)
 
 			assert.Equal(t, tt.values["country"][0], "Greece")
 			assert.Equal(t, tt.values["stars"][0], "1")
@@ -405,6 +472,7 @@ func TestDynamicFilters(t *testing.T) {
 			assert.Equal(t, tt.values["c"][0], "8")
 			assert.Equal(t, tt.values["flying"][0], "%cars%")
 			assert.Equal(t, tt.values["crying"][0], "%TeSlA%")
+
 		})
 
 	}

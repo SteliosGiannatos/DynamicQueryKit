@@ -9,8 +9,20 @@
 package dqk
 
 import (
+	"strconv"
 	"strings"
 	"time"
+
+	sq "github.com/Masterminds/squirrel"
+)
+
+const (
+	TokenLimit   = "limit"
+	TokenOffset  = "offset"
+	TokenWhere   = "where"
+	TokenHaving  = "having"
+	tokenNull    = "__NULL__"
+	tokenNotNull = "__NOT_NULL__"
 )
 
 // ErrorResponse standard for errors
@@ -27,11 +39,6 @@ type Pagination struct {
 	NextPage    bool `json:"next_page" xml:"next_page" yaml:"next_page" csv:"next_page"`
 	Limit       int  `json:"limit" xml:"limit" yaml:"limit" csv:"limit"`
 }
-
-const (
-	tokenNull    = "__NULL__"
-	tokenNotNull = "__NOT_NULL__"
-)
 
 // Filters standard for allowed filters
 type Filters struct {
@@ -74,6 +81,11 @@ func (f *Filters) HasNullOrNotNull(values ...string) bool {
 
 func (f *Filters) ApplyNullToken(values ...string) bool {
 	applied := false
+	switch strings.ToLower(f.Name) {
+	case "offset", "limit":
+		return applied
+	}
+
 	for _, value := range values {
 		switch value {
 		case tokenNull:
@@ -117,4 +129,61 @@ type DistinctFieldNames struct {
 // IDs generic struct for getting the IDs of assets
 type IDs struct {
 	ID int `json:"id" xml:"id" yaml:"id" csv:"id"`
+}
+
+func NewConditional(exrp sq.Sqlizer, ConType string, values []string) Conditional {
+	return Conditional{
+		Expresion: exrp,
+		Type:      ConType,
+		Values:    values,
+	}
+}
+
+type Conditional struct {
+	Expresion sq.Sqlizer
+	Type      string
+	Values    []string
+}
+
+func (c *Conditional) applyWhere(q sq.SelectBuilder) sq.SelectBuilder {
+	q = q.Where(c.Expresion)
+	return q
+}
+
+func (c *Conditional) applyHaving(q sq.SelectBuilder) sq.SelectBuilder {
+	q = q.Having(c.Expresion)
+	return q
+}
+
+func (c *Conditional) applyLimit(q sq.SelectBuilder) sq.SelectBuilder {
+	value, err := strconv.Atoi(c.Values[0])
+	if err != nil {
+		return q
+	}
+	q = q.Limit(uint64(value))
+	return q
+}
+
+func (c *Conditional) applyOffset(q sq.SelectBuilder) sq.SelectBuilder {
+	value, err := strconv.Atoi(c.Values[0])
+	if err != nil {
+		return q
+	}
+	q = q.Offset(uint64(value))
+	return q
+}
+
+func (c *Conditional) Apply(q sq.SelectBuilder) sq.SelectBuilder {
+	switch c.Type {
+	case TokenWhere:
+		q = c.applyWhere(q)
+	case TokenHaving:
+		q = c.applyHaving(q)
+	case TokenLimit:
+		q = c.applyLimit(q)
+	case TokenOffset:
+		q = c.applyOffset(q)
+
+	}
+	return q
 }
