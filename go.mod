@@ -5,8 +5,8 @@ go 1.24.2
 require (
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/bradfitz/gomemcache v0.0.0-20250403215159-8d39553ac7cf
-	github.com/redis/go-redis/v9 v9.7.3
-	github.com/stretchr/testify v1.10.0
+	github.com/redis/go-redis/v9 v9.14.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
