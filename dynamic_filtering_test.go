@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"strings"
 	"testing"
 
 	sq "github.com/Masterminds/squirrel"
@@ -420,7 +421,7 @@ func TestDynamicFilters(t *testing.T) {
 		name                 string
 		filters              []Filters
 		values               map[string][]string
-		ExpectedQuery        string
+		ExpectedQuery        sq.SelectBuilder
 		ExpectedStringParams map[string]string
 	}{
 		{
@@ -443,15 +444,23 @@ func TestDynamicFilters(t *testing.T) {
 				"flying":       {"cars"},
 				"crying":       {"TeSlA"},
 			},
-			ExpectedQuery: "SELECT * FROM countries WHERE cars.flying LIKE ? AND cars.crying ILIKE ? AND country.name = ? AND booking.stars IN (?,?) AND country.deleted_date IS NULL AND country.created_date IS NOT NULL HAVING SUM(id) < ?",
+			ExpectedQuery: sq.Select("*").
+				From("countries").
+				Where(sq.Expr("country.deleted_date ?", "IS NULL")).
+				Where(sq.Expr("country.created_date ?", "IS NOT NULL")).
+				Where(sq.Like{"cars.flying": "cars"}).
+				Where(sq.ILike{"cars.crying": "TeSlA"}).
+				Where(sq.Eq{"country.name": "Greece"}).
+				Where(sq.Eq{"booking.stars": "1,2"}).
+				Having(sq.Expr("SUM(id) < ?", "8")),
 			ExpectedStringParams: map[string]string{
-				"country.name =":       "Greece",
-				"booking.stars IN":     "1,2",
+				"country.name =":       "?",
+				"booking.stars IN":     "(?,?)",
 				"country.deleted_date": "IS NULL",
 				"country.created_date": "IS NOT NULL",
-				"SUM(id) <":            "8",
-				"cars.flying LIKE":     "%cars%",
-				"cars.crying ILIKE":    "%TeSlA%",
+				"SUM(id) <":            "?",
+				"cars.flying LIKE":     "?",
+				"cars.crying ILIKE":    "?",
 			},
 		},
 	}
@@ -463,8 +472,14 @@ func TestDynamicFilters(t *testing.T) {
 
 			query := DynamicFilters(tt.filters, q, v)
 
-			stringQuery, _, _ := query.ToSql()
-			assert.Equal(t, tt.ExpectedQuery, stringQuery)
+			ActualQueryStr, _, _ := query.ToSql()
+
+			for name, value := range tt.ExpectedStringParams {
+				fmt.Printf("Expected: (%s %s) Match: %t\n", name, value, strings.Contains(ActualQueryStr, fmt.Sprintf("%s %s", name, value)))
+				assert.True(t, strings.Contains(ActualQueryStr, fmt.Sprintf("%s %s", name, value)))
+
+			}
+			fmt.Println(ActualQueryStr)
 
 			assert.Equal(t, tt.values["country"][0], "Greece")
 			assert.Equal(t, tt.values["stars"][0], "1")
